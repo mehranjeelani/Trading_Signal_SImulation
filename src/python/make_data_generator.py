@@ -38,7 +38,7 @@ from datetime import timedelta
 
 TIME_FORMAT = '%H:%M:%S.%f'
 TICK_SIZE = 0.05
-
+MAX_ROWS = 53749
 SEED = 1
 
 
@@ -81,7 +81,7 @@ def round_to_tick_size(price, tick_size):
         round_to_tick_size(1.38, 0.5) -> 1.5
         round_to_tick_size(1.3856, 0.001) -> 1.39
     '''
-    return round(price, 2)
+    return round(round(price/tick_size)*tick_size ,2)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -92,6 +92,7 @@ def main():
 
     # Initialization
     rows = []
+    time_log = set()
     price = 100
     current_time = datetime.strptime('09:00:00.000', TIME_FORMAT)
     end_time = datetime.strptime('17:30:00.000', TIME_FORMAT)
@@ -101,18 +102,22 @@ def main():
     while current_time <= end_time:
 
         # Making sure that there's a price change for this timestamp. Otherwise, skip
-        if price != last_price:
-            formatted_time = str(current_time.strftime(TIME_FORMAT))[:-3]
+        formatted_time = str(current_time.strftime(TIME_FORMAT))[:-3]
+        if price != last_price and formatted_time not in time_log:
+            time_log.add(formatted_time)
             rows.append('{0},{1}'.format(formatted_time, price))
 
+
         # Generate the new price and timestamp
+        last_price = price
         price += rand_double(-0.2, 0.2)
         price = round_to_tick_size(price, TICK_SIZE)
         price = TICK_SIZE if price < TICK_SIZE else price
         current_time += timedelta(milliseconds=rand_int(1, 1000))
-
+    rows.sort(key = lambda entry : entry.split(',')[0] )
+    rows = rows[:MAX_ROWS]
     # Write the generated values to a file
-    with open(args.file_path, 'r') as file_handler:
+    with open(args.file_path, 'w') as file_handler:
         for row in rows:
             file_handler.write(row + '\n')
 
